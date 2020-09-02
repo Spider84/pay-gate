@@ -577,7 +577,7 @@ def error_handler(update: Update, context: CallbackContext):
     context.bot.send_message(chat_id=191835312, text=message, parse_mode=ParseMode.HTML)
 
 def main():
-    global bot, oled, qr_img, font2, serial
+    global bot, oled, qr_img, font2, serial, SCREENS_DIR
 
     logger.info("Service started")
 
