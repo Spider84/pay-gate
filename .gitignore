@@ -1,0 +1,12 @@
+/logs/
+/lib/
+cpuinfo
+/.vscode
+/dist/
+/build/
+__pycache__
+*.egg-info
+/screens/
+/tests/
+.pylintrc
+service.code-workspace
