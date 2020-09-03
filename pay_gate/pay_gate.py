@@ -22,7 +22,7 @@ from telegram import Update, ParseMode
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 from email.header import decode_header
 from PIL import Image, ImageDraw, ImageFont
-from charset import sevenSegLarge
+from pay_gate.charset import sevenSegLarge
 if sys.platform != 'win32':
     from OPi import GPIO
     from oled.device import ssd1306, sh1106
@@ -64,7 +64,7 @@ qr_img = 0
 serial = ''
 work_start = float(0)
 work_length = float(0)
-font2 = ImageFont.truetype('fonts/C&C Red Alert [INET].ttf', 15)
+font2 = ImageFont.truetype(os.path.join(os.path.dirname(__file__),'fonts/C&C Red Alert [INET].ttf'), 15)
 static_image = 0
 screen = Image.new('1', (128, 64))
 
