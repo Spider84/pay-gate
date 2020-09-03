@@ -35,4 +35,9 @@ setup(
     package_data={
         'pay_gate': ['fonts/*.ttf', 'translations/*']
     },
+    entry_points={
+        'console_scripts': [
+            'pay_gate = pay_gate.__main__:main',
+        ]
+    }
 )

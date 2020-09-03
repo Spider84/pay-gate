@@ -10,3 +10,4 @@ __pycache__
 /tests/
 .pylintrc
 service.code-workspace
+board.json

@@ -24,19 +24,19 @@ from email.header import decode_header
 from PIL import Image, ImageDraw, ImageFont
 from charset import sevenSegLarge
 if sys.platform != 'win32':
-    import OPi.GPIO as GPIO
+    from OPi import GPIO
     from oled.device import ssd1306, sh1106
 
 PIN_NUM = 26                                             # номер ноги на разъёме для реле
-TOKEN = '1249317488:AAFMAn-V4O3Mf-Obydhvrre57dKf8OMkVX4' # токен бота
-CHANNEL_ID = 191835312                                   #куда слать широковещания
-SAVER_TIME = (10, 5)                                     #время статичной картинки, время чёрного экрана в секндах
-QR_NUM = 1000112466                                      #номер QR для сравнения в EMAIL
-QR_CODE = 'https://www.sberbank.ru/qr/uuid={}'.format(QR_NUM)   # ссылка внутри QR кода
+TOKEN = ''                                               # токен бота
+CHANNEL_ID = 0                                           #куда слать широковещания
+SAVER_TIME = (60, 5)                                     #время статичной картинки, время чёрного экрана в секндах
+QR_NUM = 0                                               #номер QR для сравнения в EMAIL
+QR_CODE = ''                                             # ссылка внутри QR кода
 
-IMAP_SERVER = 'imap.gmail.com'
-EMAIL_LOGIN = 'esp.qr.test@gmail.com'
-EMAIL_PASSWORD = 'TestPassword'
+IMAP_SERVER = ''
+EMAIL_LOGIN = ''
+EMAIL_PASSWORD = ''
 
 SCREENS_DIR = 'screens'
 LOG_PATH = '/var/log/' if sys.platform != 'win32' else 'logs' #папка с логами
@@ -576,6 +576,36 @@ def error_handler(update: Update, context: CallbackContext):
     # Finally, send the message
     context.bot.send_message(chat_id=191835312, text=message, parse_mode=ParseMode.HTML)
 
+def loadSettings():
+    config_json = '/etc/pay-gate.json'
+    if os.path.isfile(config_json):
+        with open(config_json) as json_file:
+            config = json.load(json_file)
+
+            if 'hw' in config is not None:
+                global PIN_NUM, LED_NUM
+                if 'relay_pin' in config['hw'] and config['hw']['relay_pin'].isdigit():
+                    PIN_NUM = int(config['hw']['relay_pin'])
+                if 'led_pin' in config['hw'] and config['hw']['led_pin'].isdigit():
+                    LED_NUM = int(config['hw']['led_pin'])
+
+            try:
+                global TOKEN, CHANNEL_ID, QR_NUM, QR_CODE, SAVER_TIME, IMAP_SERVER, EMAIL_LOGIN, EMAIL_PASSWORD, EMAIL_INTERVAL
+                TOKEN = config['telegram']['token']
+                CHANNEL_ID = config['telegram']['channel_id']
+                QR_NUM = config['QR']['num']
+                QR_CODE = config['QR']['url'].format(QR_NUM)
+                SAVER_TIME = (int(config['saver']['delay']), int(config['saver']['show']))
+                IMAP_SERVER = config['email']['server']
+                EMAIL_LOGIN = config['email']['login']
+                EMAIL_PASSWORD = config['email']['password']
+                EMAIL_INTERVAL = int(config['email']['interval'])
+            except:
+                sys.exit()
+            else:
+                return
+    sys.exit()
+
 def main():
     global bot, oled, qr_img, font2, serial, SCREENS_DIR
 
@@ -598,11 +628,28 @@ def main():
     if not os.path.isdir(SCREENS_DIR):
         os.mkdir(SCREENS_DIR)
 
+    loadSettings()
+
     try:
-        oled = ssd1306(port=0, address=0x3C)
+        model = None
+        board_json = '/etc/board.json'
+        if os.path.isfile(board_json):
+            with open(board_json) as json_file:
+                board = json.load(json_file)
+                if board['model'] is not None and board['model']['id'] is not None:
+                    manuf, model = board['model']['id'].split(',', 2)
+
+        if model=='orangepi-zero':
+            import orangepi.zero
+        else:
+            import orangepi.zeroplus2
+
+        GPIO.setwarnings(False)
         GPIO.setmode(GPIO.BOARD)
         GPIO.setup(PIN_NUM, GPIO.OUT)
         GPIO.output(PIN_NUM, GPIO.HIGH)
+
+        oled = ssd1306(port=0, address=0x3C)
     except Exception as e: # pylint: disable=broad-except
         logger.error("Unable to init Hardware")
 
