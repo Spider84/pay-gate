@@ -10,7 +10,7 @@ Why does this file exist, and why __main__? For more info, read:
 
 import sys
 
-from pay_gate import main
+from pay_gate.pay_gate import main
 
 if __name__ == '__main__':
     sys.exit(main())
