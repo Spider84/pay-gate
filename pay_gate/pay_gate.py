@@ -573,8 +573,11 @@ def error_handler(update: Update, context: CallbackContext):
         html.escape(tb)
     )
 
-    # Finally, send the message
-    context.bot.send_message(chat_id=191835312, text=message, parse_mode=ParseMode.HTML)
+    try:
+        # Finally, send the message
+        context.bot.send_message(chat_id=191835312, text=message, parse_mode=ParseMode.HTML)
+    except Exception: # pylint: disable=broad-except
+        pass
 
 def loadSettings():
     config_json = '/etc/pay-gate.json'
