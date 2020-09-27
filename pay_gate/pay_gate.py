@@ -49,6 +49,7 @@ gettext.install('gate_service', './translations')
 logFormatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
 logger = logging.getLogger()
 
+pkg_name = vars(sys.modules[__name__])['__package__']
 if pkg_name is None:
     pkg_name = __name__
 fileHandler = logging.FileHandler('{0}/{1}.log'.format(LOG_PATH, pkg_name))
