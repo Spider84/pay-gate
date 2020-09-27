@@ -414,8 +414,13 @@ def check_mail():
                 if result.lower() == "ok":
                     message = email.message_from_bytes(data[0][1])
 
-                    mail_from = message['from']
+                    mail_from, _from_encode = decode_header(message['from'])[0]
                     mail_subject, _encoding = decode_header(message['subject'])[0]
+
+                    try
+                        logger.info('EMAIL from %s with Subject: %s', mail_from.decode(_from_encode), mail_subject.decode(_encoding))
+                    except (UnicodeDecodeError, AttributeError):
+                        pass
 
                     if message.is_multipart():
                         mail_content = ''
@@ -432,8 +437,6 @@ def check_mail():
                     else:
                         # if the message isn't multipart, just extract it
                         mail_content = message.get_payload()
-
-                    logger.info('EMAIL from %s with Subject: %s', mail_from, mail_subject)
 
                     # and then let's show its result
                     # print(f'From: {mail_from}')
