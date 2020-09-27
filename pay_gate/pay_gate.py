@@ -17,6 +17,7 @@ import html
 import json
 import random
 import tempfile
+import socket
 from datetime import datetime
 from telegram import Update, ParseMode
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
@@ -72,6 +73,12 @@ work_length = float(0)
 font2 = ImageFont.truetype(os.path.join(os.path.dirname(__file__),'fonts/C&C Red Alert [INET].ttf'), 15)
 static_image = 0
 screen = Image.new('1', (128, 64))
+
+def get_ip_address():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.settimeout(10)
+    s.connect(("8.8.8.8", 80))
+    return s.getsockname()[0]
 
 def generate_logo(logo_file):
     qr = qrcode.QRCode(
@@ -833,8 +840,7 @@ def main():
     # Start the Bot
     updater.start_polling()
 
-    bot = updater.bot
-    bot.send_message(CHANNEL_ID, _('Bot Started'), "Markdown", True)
+    bot = updater.bot    
 
     mail_thread = threading.Thread(target=check_mail, name="check_mail")
     work_thread = threading.Thread(target=check_work, name="check_work")
@@ -843,7 +849,18 @@ def main():
 
     mail_thread.start()
     work_thread.start()
-
+    
+    while True:
+        try:
+            bot.send_message(CHANNEL_ID, _('Bot Started'), "Markdown", True)
+        except:
+            continue
+        else:
+            break
+     
+    bot.send_message(CHANNEL_ID, _('My IP: {}').format(get_ip_address()), "Markdown", True)
+     
+        
     # Run the bot until you press Ctrl-C or the process receives SIGINT,
     # SIGTERM or SIGABRT. This should be used most of the time, since
     # start_polling() is non-blocking and will stop the bot gracefully.
