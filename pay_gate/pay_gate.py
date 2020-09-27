@@ -33,6 +33,7 @@ CHANNEL_ID = 0                                           #куда слать ш
 SAVER_TIME = (60, 5)                                     #время статичной картинки, время чёрного экрана в секндах
 QR_NUM = 0                                               #номер QR для сравнения в EMAIL
 QR_CODE = ''                                             # ссылка внутри QR кода
+PAY_COEF = 0.8
 
 IMAP_SERVER = ''
 EMAIL_LOGIN = ''
@@ -458,7 +459,7 @@ def check_mail():
                                 logger.info('Payment detected %.2f', pay)
                                 bot.send_message(CHANNEL_ID, _('Payment detected {}!').format(pay), "Markdown", True)
                                 work_start = datetime.timestamp(datetime.now())
-                                work_length = int((60 *pay * 8)/10)
+                                work_length = int((60 * pay)*PAY_COEF)
                                 turnRelayOn()
                                 saveWork(m.groups()[0])
 
@@ -597,6 +598,11 @@ def loadSettings():
                 if 'led_pin' in config['hw'] and config['hw']['led_pin'].isdigit():
                     LED_NUM = int(config['hw']['led_pin'])
 
+            try:
+                PAY_COEF = float(config['pay']['coeficient'])
+            except:
+                pass
+                    
             try:
                 global TOKEN, CHANNEL_ID, QR_NUM, QR_CODE, SAVER_TIME, IMAP_SERVER, EMAIL_LOGIN, EMAIL_PASSWORD, EMAIL_INTERVAL
                 TOKEN = config['telegram']['token']
