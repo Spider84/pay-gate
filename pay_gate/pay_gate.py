@@ -41,7 +41,8 @@ EMAIL_PASSWORD = ''
 
 SCREENS_DIR = 'screens'
 LOG_PATH = '/var/log/' if sys.platform != 'win32' else 'logs' #папка с логами
-LIB_DIR = '/var/lib/pay_gate' if sys.platform != 'win32' else 'lib' #папка с логами
+LIB_DIR = '/var/lib/pay_gate' if sys.platform != 'win32' else 'lib' #папка  данными
+LOGO_FILE = 'logo.png'                                        #файл логотипа
 
 gettext.install('gate_service', './translations')
 
@@ -64,13 +65,36 @@ logger.setLevel(logging.INFO)
 
 bot = 0
 oled = 0
-qr_img = 0
+logo_img = Image.new('1', (128, 64))
 serial = ''
 work_start = float(0)
 work_length = float(0)
 font2 = ImageFont.truetype(os.path.join(os.path.dirname(__file__),'fonts/C&C Red Alert [INET].ttf'), 15)
 static_image = 0
 screen = Image.new('1', (128, 64))
+
+def generate_logo(logo_file):
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=2,
+        border=0,
+    )
+    qr.add_data(QR_CODE)
+    qr.make(fit=True)
+
+    qr_img = qr.make_image(fill_color="white", back_color="black")
+    qr_img.convert("L")
+    
+    del qr
+    
+    logo_img.paste(qr_img, (int((screen.width/2)-(qr_img.width/2)), 0))
+    
+    del qr_img
+    
+    logo_img.convert("L")
+    logo_img.save(logo_file, "PNG")
+    logger.info("QR Generated")
 
 def turnRelayOn():
     """Включение реле."""
@@ -121,7 +145,7 @@ def start(update, _context):
 
 def help_command(update, _context):
     """Send a message when the command /help is issued."""
-    update.message.reply_text(_('My commands list is:\n\t/serial - my serial number\n\t/state - current gate state\n\t/turnon {minutes} - open gate for {minutes} time\n\t/turnoff - close gate immediately\n\t/logs {cmd} [params] - work with log files, where {cmd} is:\n\t\tlist [page] - list log files from {page}, where {page} is page number by 10 files\n\t\tget {file_name} - downlaod log file {filename}\n\t\tclear {file_name} - clear log {filename}\n\t/saverers {cmd} [params] - work with screen savers files, where {cmd} is:\n\t\tadd - add new image file\t\tlist [page] - list files from {page}, where {page} is page number by 10 files\n\t\tget {file_name} - downlaod image file {filename}\n\t\tdel {file_name} - delete image file {filename}\n'))
+    update.message.reply_text(_('My commands list is:\n\t/serial - my serial number\n\t/state - current gate state\n\t/turnon {minutes} - open gate for {minutes} time\n\t/turnoff - close gate immediately\n\t/logs {cmd} [params] - work with log files, where {cmd} is:\n\t\tlist [page] - list log files from {page}, where {page} is page number by 10 files\n\t\tget {file_name} - downlaod log file {filename}\n\t\tclear {file_name} - clear log {filename}\n\t/savers {cmd} [params] - work with screen savers files, where {cmd} is:\n\t\tadd - add new image file\t\tlist [page] - list files from {page}, where {page} is page number by 10 files\n\t\tget {file_name} - downlaod image file {filename}\n\t\tdel {file_name} - delete image file {filename}\n/logo {cmd} [params] - work with logo, where {cmd} is:\n\t\tadd - replace current logo with uploaded\n\t\tget - downlaod logo image file\n\t\tdel - delete logo image file and replace by QR code\n'))
 
 def bot_screen(update, _context):
     """Обработчик команды бота screen."""
@@ -185,6 +209,48 @@ def document_handler(update, context):
             except Exception: # pylint: disable=broad-except
                 update.message.reply_text(_('Sorry, but file must be a picture'))
                 os.remove(new_file_name)
+    elif 'logo_upload' in context.chat_data:
+        old_job = context.chat_data['logo_upload']
+        old_job.schedule_removal()
+        
+        new_file_name = os.path.join('/tmp', LOGO_FILE)
+
+        file = context.bot.getFile(update.message.document)
+        file.download(custom_path=new_file_name)
+        try:
+            im = Image.open(new_file_name)
+            if im.width != 128 or im.height != 64 or im.mode not in set(['1', 'L', 'P']):
+                im.close()
+                del im
+                update.message.reply_text(_('Sorry, but picture must be 128x64 mono color'))
+                os.remove(new_file_name)
+            else:
+                im.close()
+                del im
+                
+                update.message.reply_text(_('Thx for new logo'))
+                
+                try:
+                    global work_start, logo_img, oled, screen
+                    logo_file_name = os.path.join(LIB_DIR, LOGO_FILE)
+                    if os.path.isfile(logo_file_name):
+                        os.remove(logo_file_name)
+                    os.rename(new_file_name, logo_file_name)
+                    logo_img = Image.open(logo_file_name)
+                    
+                    if work_start == 0:
+                        draw = ImageDraw.Draw(screen)
+                        draw.rectangle([(0, 0), screen.size], fill=0)
+                        screen.paste(logo_img, (0, 0))
+                        try:
+                            oled.display(screen)
+                        except Exception: # pylint: disable=broad-except
+                            pass
+                except Exception: # pylint: disable=broad-except
+                    pass
+        except Exception: # pylint: disable=broad-except
+            update.message.reply_text(_('Sorry, but file must be a picture'))
+            os.remove(new_file_name)
     else:
         pass
 
@@ -192,6 +258,50 @@ def saver_upload_timeout(_update, context):
     """Обработчик таймаута на загрузку изображения."""
     job = context.job
     context.bot.send_message(job.context, text='Sorry, but you late....')
+
+def bot_logo(update, context):
+    """Обработчик команды бота logo."""
+    logger.info('Logo requested by %s', user_name(update.message.from_user))
+    if len(context.args) >= 1:
+        cmd = context.args[0].lower()
+        if cmd == 'add':
+            if 'logo_upload' in context.chat_data:
+                old_job = context.chat_data['logo_upload']
+                old_job.schedule_removal()
+                update.message.reply_text(_('Oh! I already waiting for file. Ok. Will wait for new...'))
+            else:
+                update.message.reply_text(_('Ok. I\'m waiting for new file...'))
+            chat_id = update.message.chat_id
+            new_job = context.job_queue.run_once(saver_upload_timeout, 60, context=chat_id)
+            context.chat_data['logo_upload'] = new_job
+        elif cmd == 'get':
+            file_name = os.path.join(LIB_DIR, LOGO_FILE)
+            if os.path.isfile(file_name):
+                try:
+                    with open(file_name, 'rb') as f:
+                        update.message.reply_document(f)
+                except Exception: # pylint: disable=broad-except
+                    pass
+            else:
+                update.message.reply_text(_('Sorry, but this file is not exists'))
+        elif cmd == 'del':
+            file_name = os.path.join(LIB_DIR, LOGO_FILE)
+            if os.path.isfile(file_name):
+                global logo_img, screen, oled
+                os.remove(file_name)
+                logo_img = Image.new('1', (128, 64))
+                generate_logo(file_name)
+                if work_start == 0:
+                    draw = ImageDraw.Draw(screen)
+                    draw.rectangle([(0, 0), screen.size], fill=0)
+                    screen.paste(logo_img, (0, 0))
+                    try:
+                        oled.display(screen)
+                    except Exception: # pylint: disable=broad-except
+                        pass
+                update.message.reply_text(_('Custom logo removed'))
+            else:
+                update.message.reply_text(_('Sorry, but this file is not exists'))
 
 def bot_savers(update, context):
     """Обработчик команды бота savers."""
@@ -301,7 +411,7 @@ def bot_turnoff(update, _context):
         turnRelayOff()
         draw = ImageDraw.Draw(screen)
         draw.rectangle([(0, 0), screen.size], fill=0)
-        screen.paste(qr_img, (int((screen.width/2)-(qr_img.width/2)), 0))
+        screen.paste(logo_img, (0, 0))
         try:
             oled.display(screen)
         except Exception: # pylint: disable=broad-except
@@ -320,7 +430,7 @@ def check_work():
     last_notify = 0
 
     while True:
-        global work_start, work_length, qr_img, font2
+        global work_start, work_length, logo_img, font2
         now = datetime.timestamp(datetime.now())
         if work_start > 0 and work_length > 0:
             elapsed_time = now - work_start
@@ -339,7 +449,7 @@ def check_work():
 
                 time.sleep(5)
                 draw.rectangle([(0, 0), screen.size], fill=0)
-                screen.paste(qr_img, (int((screen.width/2)-(qr_img.width/2)), 0))
+                screen.paste(logo_img, (0, 0))
                 try:
                     oled.display(screen)
                 except Exception: # pylint: disable=broad-except
@@ -395,7 +505,7 @@ def check_work():
                 static_image = now
                 draw = ImageDraw.Draw(screen)
                 draw.rectangle([(0, 0), screen.size], fill=0)
-                screen.paste(qr_img, (int((screen.width/2)-(qr_img.width/2)), 0))
+                screen.paste(logo_img, (0, 0))
                 try:
                     oled.display(screen)
                 except Exception: # pylint: disable=broad-except
@@ -622,7 +732,7 @@ def loadSettings():
     sys.exit()
 
 def main():
-    global bot, oled, qr_img, font2, serial, SCREENS_DIR
+    global bot, oled, logo_img, font2, serial, SCREENS_DIR
 
     logger.info("Service started")
 
@@ -668,21 +778,19 @@ def main():
     except Exception as e: # pylint: disable=broad-except
         logger.error("Unable to init Hardware")
 
-    qr = qrcode.QRCode(
-        version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_L,
-        box_size=2,
-        border=0,
-    )
-    qr.add_data(QR_CODE)
-    qr.make(fit=True)
-
-    qr_img = qr.make_image(fill_color="white", back_color="black")
-    qr_img.convert("L")
-    logger.debug("QR Generated")
-
+    logo_loaded = False
+    logo_file = os.path.join(LIB_DIR, LOGO_FILE)
+    if os.path.isfile(logo_file):
+        logo_img = Image.open(logo_file)
+        logo_img.convert("L")
+        logger.info("QR Loaded")
+        logo_loaded = True
+    if not logo_loaded:
+        generate_logo(logo_file)
+        
     ImageDraw.Draw(screen).rectangle([(0, 0), screen.size], fill=0)
-    screen.paste(qr_img, (int((screen.width/2)-(qr_img.width/2)), 0))
+    screen.paste(logo_img, (0, 0))
+
     try:
         oled.display(screen)
     except:
@@ -711,6 +819,7 @@ def main():
     dp.add_handler(CommandHandler("serial", bot_serial))
     dp.add_handler(CommandHandler("screen", bot_screen))
     dp.add_handler(CommandHandler("savers", bot_savers, pass_args=True, pass_job_queue=True, pass_chat_data=True))
+    dp.add_handler(CommandHandler("logo", bot_logo, pass_args=True, pass_job_queue=True, pass_chat_data=True))
     dp.add_handler(MessageHandler(Filters.document, document_handler))
 
     # on noncommand i.e message - echo the message on Telegram
