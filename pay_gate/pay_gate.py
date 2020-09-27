@@ -444,7 +444,7 @@ def check_mail():
 
                     global bot, work_start, work_length, QR_NUM
                     if work_start == 0:
-                        m = re.search('^TEXT\\s*\\:.*\\s(\\d+)\\..*\\:\\s*(\\d+\\.\\d{2})\\s*RUB\\.\\s*QR\\s*:\\s*(\\d+)\\.$', mail_content, re.MULTILINE)
+                        m = re.search('^TEXT\\s*\\:.*\\s(\\d+)\\..*\\:\\s*(\\d+\\.\\d{2})\\s*RUB\\.\\s*QR\\s*:\\s*(\\d+)\\.\r?$', mail_content, re.MULTILINE | re.UNICODE)
                         if m is not None:
                             pay = float(m.groups()[1])
                             _qr_num = int(m.groups()[2])
