@@ -48,7 +48,9 @@ gettext.install('gate_service', './translations')
 logFormatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
 logger = logging.getLogger()
 
-fileHandler = logging.FileHandler('{0}/{1}.log'.format(LOG_PATH, __name__))
+if pkg_name is None:
+    pkg_name = __name__
+fileHandler = logging.FileHandler('{0}/{1}.log'.format(LOG_PATH, pkg_name))
 fileHandler.setFormatter(logFormatter)
 logger.addHandler(fileHandler)
 
@@ -417,7 +419,7 @@ def check_mail():
                     mail_from, _from_encode = decode_header(message['from'])[0]
                     mail_subject, _encoding = decode_header(message['subject'])[0]
 
-                    try
+                    try:
                         logger.info('EMAIL from %s with Subject: %s', mail_from.decode(_from_encode), mail_subject.decode(_encoding))
                     except (UnicodeDecodeError, AttributeError):
                         pass
