@@ -1,0 +1,165 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR ORGANIZATION
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"POT-Creation-Date: 2020-09-28 13:04+0600\n"
+"PO-Revision-Date: 2020-09-28 13:13+6000\n"
+"Last-Translator: Alexey Belyaev <spider@spider.vc>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Generated-By: pygettext.py 1.5\n"
+
+
+#: pay_gate/pay_gate.py:144
+msgid "Restoring prev work!"
+msgstr "Возобновление предыдущей работы!"
+
+#: pay_gate/pay_gate.py:152
+msgid "Send /help cmd for all commands list"
+msgstr "Отправьте /help чтобы получить справку по командам"
+
+#: pay_gate/pay_gate.py:156
+msgid ""
+"My commands list is:\n"
+"\t/serial - my serial number\n"
+"\t/state - current gate state\n"
+"\t/turnon {minutes} - open gate for {minutes} time\n"
+"\t/turnoff - close gate immediately\n"
+"\t/logs {cmd} [params] - work with log files, where {cmd} is:\n"
+"\t\tlist [page] - list log files from {page}, where {page} is page number by 10 files\n"
+"\t\tget {file_name} - downlaod log file {filename}\n"
+"\t\tclear {file_name} - clear log {filename}\n"
+"\t/savers {cmd} [params] - work with screen savers files, where {cmd} is:\n"
+"\t\tadd - add new image file\t\tlist [page] - list files from {page}, where {page} is page number by 10 files\n"
+"\t\tget {file_name} - downlaod image file {filename}\n"
+"\t\tdel {file_name} - delete image file {filename}\n"
+"/logo {cmd} [params] - work with logo, where {cmd} is:\n"
+"\t\tadd - replace current logo with uploaded\n"
+"\t\tget - downlaod logo image file\n"
+"\t\tdel - delete logo image file and replace by QR code\n"
+msgstr ""
+
+#: pay_gate/pay_gate.py:176
+msgid "Elapsed time: {} of {}"
+msgstr "Прошло времени {} из {}"
+
+#: pay_gate/pay_gate.py:178
+msgid "On Idle"
+msgstr "Бездельничаю"
+
+#: pay_gate/pay_gate.py:190
+msgid "Starting work for {} sec"
+msgstr ""
+
+#: pay_gate/pay_gate.py:193 pay_gate/pay_gate.py:403
+msgid "What you want?"
+msgstr ""
+
+#: pay_gate/pay_gate.py:202
+msgid "Sorry, but this file already exists"
+msgstr ""
+
+#: pay_gate/pay_gate.py:211 pay_gate/pay_gate.py:233
+msgid "Sorry, but picture must be 128x64 mono color"
+msgstr ""
+
+#: pay_gate/pay_gate.py:216
+msgid "Thx for new screen saver"
+msgstr ""
+
+#: pay_gate/pay_gate.py:218 pay_gate/pay_gate.py:260
+msgid "Sorry, but file must be a picture"
+msgstr ""
+
+#: pay_gate/pay_gate.py:239
+msgid "Thx for new logo"
+msgstr ""
+
+#: pay_gate/pay_gate.py:279 pay_gate/pay_gate.py:323
+msgid "Oh! I already waiting for file. Ok. Will wait for new..."
+msgstr ""
+
+#: pay_gate/pay_gate.py:281 pay_gate/pay_gate.py:325
+msgid "Ok. I'm waiting for new file..."
+msgstr ""
+
+#: pay_gate/pay_gate.py:294 pay_gate/pay_gate.py:312 pay_gate/pay_gate.py:339
+#: pay_gate/pay_gate.py:350
+msgid "Sorry, but this file is not exists"
+msgstr ""
+
+#: pay_gate/pay_gate.py:310
+msgid "Custom logo removed"
+msgstr ""
+
+#: pay_gate/pay_gate.py:335
+msgid "Screen image file {} is deleted"
+msgstr ""
+
+#: pay_gate/pay_gate.py:370
+msgid "({})..."
+msgstr ""
+
+#: pay_gate/pay_gate.py:373
+msgid "no more files"
+msgstr ""
+
+#: pay_gate/pay_gate.py:375
+msgid "no logs directory"
+msgstr ""
+
+#: pay_gate/pay_gate.py:387
+msgid "Error: Unable to send file"
+msgstr ""
+
+#: pay_gate/pay_gate.py:389 pay_gate/pay_gate.py:401
+msgid "Error: No such file"
+msgstr ""
+
+#: pay_gate/pay_gate.py:397
+msgid "Deleted."
+msgstr ""
+
+#: pay_gate/pay_gate.py:399
+msgid "Error: Unable to delete file"
+msgstr ""
+
+#: pay_gate/pay_gate.py:418
+msgid "Work stopped!"
+msgstr ""
+
+#: pay_gate/pay_gate.py:429
+msgid "I'm already do nothing..."
+msgstr ""
+
+#: pay_gate/pay_gate.py:451 pay_gate/pay_gate.py:477
+msgid "Pay time: {:02d}:{:02d}"
+msgstr ""
+
+#: pay_gate/pay_gate.py:452
+msgid "Time is elapsed"
+msgstr ""
+
+#: pay_gate/pay_gate.py:470
+msgid "Stop work!"
+msgstr ""
+
+#: pay_gate/pay_gate.py:492
+msgid "Elapsed time {}"
+msgstr ""
+
+#: pay_gate/pay_gate.py:579
+msgid "Payment detected {}!"
+msgstr "Обнаружена оплата на сумму {}"
+
+#: pay_gate/pay_gate.py:856
+msgid "Bot Started"
+msgstr "Бот запущен"
+
+#: pay_gate/pay_gate.py:862
+msgid "My IP: {}"
+msgstr "Мой адресс: {}"
+

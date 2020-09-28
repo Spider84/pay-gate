@@ -45,7 +45,8 @@ LOG_PATH = '/var/log/' if sys.platform != 'win32' else 'logs' #папка с л�
 LIB_DIR = '/var/lib/pay_gate' if sys.platform != 'win32' else 'lib' #папка  данными
 LOGO_FILE = 'logo.png'                                        #файл логотипа
 
-gettext.install('gate_service', './translations')
+t = gettext.translation('pay_gate', './translations', fallback=True, languages=['ru', 'en'])
+t.install()
 
 # Enable logging
 logFormatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
