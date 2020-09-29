@@ -48,6 +48,9 @@ LIB_DIR = '/var/lib/pay_gate' if sys.platform != 'win32' else 'lib' #папка 
 LOG_PATH = os.path.join(LIB_DIR, 'log')                  #папка с логами
 LOGO_FILE = 'logo.png'                                   #файл логотипа
 
+mail_thread = 0
+work_thread = 0
+
 gettext.translation('pay_gate', os.path.join(os.path.dirname(__file__), './translations'), fallback=True, languages=['ru', 'en']).install()
 
 # Enable logging
@@ -193,7 +196,7 @@ def bot_turnon(update, context):
         work_start = datetime.timestamp(datetime.now())
         logger.info('Starting work for %d sec', int(work_length))
         turnRelayOn()
-        update.message.reply_text(_('Starting work for {} sec').format(work_length))
+        update.message.reply_text(_('Starting work for {} min').format(int(work_length/60)))
         saveWork(user_name(update.message.from_user))
     else:
         update.message.reply_text(_('What you want?'))
@@ -455,7 +458,9 @@ def check_work():
     global oled, static_image
     last_notify = 0
 
-    while True:
+    t = threading.currentThread()
+    e = getattr(t, "e")
+    while not getattr(t, "stop", False):
         global work_start, work_length, logo_img, FONT2
         now = datetime.timestamp(datetime.now())
         if work_start > 0 and work_length > 0:
@@ -503,11 +508,11 @@ def check_work():
                 if last_notify <= 0:
                     last_notify = work_start
                 if now-last_notify >= 60:
-                    elapsed = (work_length*60-elapsed_time)
+                    elapsed = (work_length-elapsed_time)
                     last_notify = now
                     logger.info('Elapsed notification %d', int(elapsed))
                     elapsed = int(elapsed/60)
-                    bot.send_message(chat_id=CHANNEL_ID, text=_('Elapsed time {}').format(elapsed), parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
+                    bot.send_message(chat_id=CHANNEL_ID, text=_('Elapsed time {}').format(int(elapsed)), parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
         else:
             if static_image == 0:
                 static_image = now
@@ -536,22 +541,25 @@ def check_work():
                     oled.display(screen)
                 except Exception:
                     pass
-        time.sleep(1)
+        e.wait(timeout=1)
+    logger.info("Work stopped")
 
 def check_mail():
     """Поток проверки почты на сервере."""
-    while True:
+    t = threading.currentThread()
+    e = getattr(t, "e")
+    while not getattr(t, "stop", False):
         try:
             mail = imaplib.IMAP4_SSL(IMAP_SERVER)
         except Exception as e:
             logger.error("Connect to IMAP server: %s", e)
-            time.sleep(60)
+            e.wait(timeout=60)
             continue
         try:
             mail.login(EMAIL_LOGIN, EMAIL_PASSWORD)
         except Exception as e:
             logger.error("Mail auth error: %s", e)
-            time.sleep(60)
+            e.wait(timeout=60)
             continue
         mail.select("inbox")
 
@@ -612,7 +620,8 @@ def check_mail():
 
         mail.close()
         mail.logout()
-        time.sleep(EMAIL_INTERVAL)
+        e.wait(timeout=EMAIL_INTERVAL)
+    logger.info("Mail check stopped")
 
 def drawProgress(display, seconds, totalSeconds):
     """Отрисовка прогресс бара."""
@@ -770,9 +779,36 @@ def loadSettings():
                 return
     sys.exit()
 
+def sig_handler(signum, _frame):
+    """Обработчик системных сигналов"""
+    global oled, screen, FONT2, mail_thread, work_thread
+    logger.info("Received %s signal.", signum)
+
+    bot.send_message(CHANNEL_ID, _('Bot shutdown request...'), "Markdown", True)
+
+    if mail_thread.is_alive():
+        mail_thread.stop = True
+        mail_thread.e.set()
+    if work_thread.is_alive():
+        work_thread.stop = True
+        work_thread.e.set()
+
+    mail_thread.join()
+    work_thread.join()
+
+    draw = ImageDraw.Draw(screen)
+    draw.rectangle([(0, 0), screen.size], fill=0)
+    text = _("System\nShutdown")
+    text_width, text_height = draw.multiline_textsize(text, font=FONT2)
+    draw.multiline_text((((screen.width-text_width)/2), ((screen.height-text_height)/2)), text, font=FONT2, fill=255, align="center")
+    try:
+        oled.display(screen)
+    except Exception:
+        pass
+
 def main():
     """Start the bot."""
-    global bot, oled, logo_img, FONT2, serial, SCREENS_DIR
+    global bot, oled, logo_img, FONT2, serial, SCREENS_DIR, mail_thread, work_thread
 
     logger.info("Service started")
 
@@ -842,7 +878,7 @@ def main():
     # Create the Updater and pass it your bot's token.
     # Make sure to set use_context=True to use the new context based callbacks
     # Post version 12 this will no longer be necessary
-    updater = Updater(TOKEN, use_context=True)
+    updater = Updater(TOKEN, use_context=True, user_sig_handler=sig_handler)
 
     # Get the dispatcher to register handlers
     dp = updater.dispatcher
@@ -875,7 +911,9 @@ def main():
     bot = updater.bot
 
     mail_thread = threading.Thread(target=check_mail, name="check_mail")
+    mail_thread.e = threading.Event()
     work_thread = threading.Thread(target=check_work, name="check_work")
+    work_thread.e = threading.Event()
 
     loadWork()
 
