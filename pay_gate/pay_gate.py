@@ -18,6 +18,7 @@ import json
 import random
 import tempfile
 import socket
+import shutil
 from datetime import datetime
 from email.header import decode_header
 from telegram import Update, ParseMode
@@ -250,7 +251,7 @@ def document_handler(update, context):
                     logo_file_name = os.path.join(LIB_DIR, LOGO_FILE)
                     if os.path.isfile(logo_file_name):
                         os.remove(logo_file_name)
-                    os.rename(new_file_name, logo_file_name)
+                    shutil.move(new_file_name, logo_file_name)
                     logo_img = Image.open(logo_file_name)
 
                     if work_start == 0:
@@ -261,13 +262,11 @@ def document_handler(update, context):
                             oled.display(screen)
                         except Exception:
                             pass
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.error("Logo upload error: %s", e)
         except Exception:
             update.message.reply_text(_('Sorry, but file must be a picture'))
             os.remove(new_file_name)
-    else:
-        pass
 
 def saver_upload_timeout(_update, context):
     """Обработчик таймаута на загрузку изображения."""
