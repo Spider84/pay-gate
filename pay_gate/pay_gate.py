@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+"""#"""
 # -*- coding: utf-8 -*-
 
 import sys
@@ -11,7 +12,6 @@ import time
 import re
 import io
 import gettext
-import qrcode
 import traceback
 import html
 import json
@@ -19,16 +19,17 @@ import random
 import tempfile
 import socket
 from datetime import datetime
+from email.header import decode_header
 from telegram import Update, ParseMode
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
-from email.header import decode_header
 from PIL import Image, ImageDraw, ImageFont
 from pay_gate.charset import sevenSegLarge
 if sys.platform != 'win32':
     from OPi import GPIO
-    from oled.device import ssd1306, sh1106
+    from oled.device import ssd1306, sh1106 # pylint: disable=unused-import
 
 PIN_NUM = 26                                             # номер ноги на разъёме для реле
+LED_NUM = 0                                              # не используется пока
 TOKEN = ''                                               # токен бота
 CHANNEL_ID = 0                                           #куда слать широковещания
 SAVER_TIME = (60, 5)                                     #время статичной картинки, время чёрного экрана в секндах
@@ -39,14 +40,14 @@ PAY_COEF = 0.8
 IMAP_SERVER = ''
 EMAIL_LOGIN = ''
 EMAIL_PASSWORD = ''
+EMAIL_INTERVAL = 10
 
 SCREENS_DIR = 'screens'
-LOG_PATH = '/var/log/' if sys.platform != 'win32' else 'logs' #папка с логами
 LIB_DIR = '/var/lib/pay_gate' if sys.platform != 'win32' else 'lib' #папка  данными
-LOGO_FILE = 'logo.png'                                        #файл логотипа
+LOG_PATH = os.path.join(LIB_DIR, 'log')                  #папка с логами
+LOGO_FILE = 'logo.png'                                   #файл логотипа
 
-t = gettext.translation('pay_gate', './translations', fallback=True, languages=['ru', 'en'])
-t.install()
+gettext.translation('pay_gate', os.path.join(os.path.dirname(__file__), './translations'), fallback=True, languages=['ru', 'en']).install()
 
 # Enable logging
 logFormatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
@@ -71,17 +72,21 @@ logo_img = Image.new('1', (128, 64))
 serial = ''
 work_start = float(0)
 work_length = float(0)
-font2 = ImageFont.truetype(os.path.join(os.path.dirname(__file__),'fonts/C&C Red Alert [INET].ttf'), 15)
+FONT2 = ImageFont.truetype(os.path.join(os.path.dirname(__file__), 'fonts/C&C Red Alert [INET].ttf'), 15)
 static_image = 0
 screen = Image.new('1', (128, 64))
 
 def get_ip_address():
+    """Получение текущего IP адреса для сообщения о нём хозяину"""
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.settimeout(10)
     s.connect(("8.8.8.8", 80))
     return s.getsockname()[0]
 
 def generate_logo(logo_file):
+    """Генерация QR кода в случае отсутвия изображения заставки"""
+    import qrcode # pylint: disable=import-outside-toplevel
+
     qr = qrcode.QRCode(
         version=1,
         error_correction=qrcode.constants.ERROR_CORRECT_L,
@@ -93,13 +98,13 @@ def generate_logo(logo_file):
 
     qr_img = qr.make_image(fill_color="white", back_color="black")
     qr_img.convert("L")
-    
+
     del qr
-    
+
     logo_img.paste(qr_img, (int((screen.width/2)-(qr_img.width/2)), 0))
-    
+
     del qr_img
-    
+
     logo_img.convert("L")
     logo_img.save(logo_file, "PNG")
     logger.info("QR Generated")
@@ -109,7 +114,7 @@ def turnRelayOn():
     logger.info('Relay On')
     try:
         GPIO.output(PIN_NUM, GPIO.LOW)
-    except Exception: # pylint: disable=broad-except
+    except Exception:
         pass
 
 def turnRelayOff():
@@ -117,7 +122,7 @@ def turnRelayOff():
     logger.info('Relay Off')
     try:
         GPIO.output(PIN_NUM, GPIO.HIGH)
-    except Exception: # pylint: disable=broad-except
+    except Exception:
         pass
 
 def saveWork(starter):
@@ -127,13 +132,13 @@ def saveWork(starter):
         'start': int(work_start),
         'length': int(work_length)
     }
-    with open(os.path.join(LIB_DIR,'work.json'), 'w') as outfile:
+    with open(os.path.join(LIB_DIR, 'work.json'), 'w') as outfile:
         json.dump(data, outfile)
 
 def loadWork():
     """Загрузка последнего сохраненого состояния работы"""
     try:
-        with open(os.path.join(LIB_DIR,'work.json')) as json_file:
+        with open(os.path.join(LIB_DIR, 'work.json')) as json_file:
             data = json.load(json_file)
             now = datetime.timestamp(datetime.now())
             if data['start'] > 0 and data['length'] > 0 and (now - int(data['start'])) < int(data['length']):
@@ -142,7 +147,7 @@ def loadWork():
                 work_length = data['length']
                 turnRelayOn()
                 bot.send_message(chat_id=CHANNEL_ID, text=_("Restoring prev work!"), parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
-    except Exception: # pylint: disable=broad-except
+    except Exception:
         pass
 
 # Define a few command handlers. These usually take the two arguments update and
@@ -197,6 +202,7 @@ def document_handler(update, context):
     if 'saver_upload' in context.chat_data:
         old_job = context.chat_data['saver_upload']
         old_job.schedule_removal()
+        del context.chat_data['saver_upload']
         new_file_name = os.path.join(SCREENS_DIR, update.message.document.file_name)
         if os.path.isfile(new_file_name):
             update.message.reply_text(_('Sorry, but this file already exists'))
@@ -214,13 +220,14 @@ def document_handler(update, context):
                     im.close()
                     del im
                     update.message.reply_text(_('Thx for new screen saver'))
-            except Exception: # pylint: disable=broad-except
+            except Exception:
                 update.message.reply_text(_('Sorry, but file must be a picture'))
                 os.remove(new_file_name)
     elif 'logo_upload' in context.chat_data:
         old_job = context.chat_data['logo_upload']
         old_job.schedule_removal()
-        
+        del context.chat_data['logo_upload']
+
         new_file_name = os.path.join('/tmp', LOGO_FILE)
 
         file = context.bot.getFile(update.message.document)
@@ -235,9 +242,9 @@ def document_handler(update, context):
             else:
                 im.close()
                 del im
-                
+
                 update.message.reply_text(_('Thx for new logo'))
-                
+
                 try:
                     global work_start, logo_img, oled, screen
                     logo_file_name = os.path.join(LIB_DIR, LOGO_FILE)
@@ -245,18 +252,18 @@ def document_handler(update, context):
                         os.remove(logo_file_name)
                     os.rename(new_file_name, logo_file_name)
                     logo_img = Image.open(logo_file_name)
-                    
+
                     if work_start == 0:
                         draw = ImageDraw.Draw(screen)
                         draw.rectangle([(0, 0), screen.size], fill=0)
                         screen.paste(logo_img, (0, 0))
                         try:
                             oled.display(screen)
-                        except Exception: # pylint: disable=broad-except
+                        except Exception:
                             pass
-                except Exception: # pylint: disable=broad-except
+                except Exception:
                     pass
-        except Exception: # pylint: disable=broad-except
+        except Exception:
             update.message.reply_text(_('Sorry, but file must be a picture'))
             os.remove(new_file_name)
     else:
@@ -273,6 +280,12 @@ def bot_logo(update, context):
     if len(context.args) >= 1:
         cmd = context.args[0].lower()
         if cmd == 'add':
+            if 'saver_upload' in context.chat_data:
+                old_job = context.chat_data['saver_upload']
+                old_job.schedule_removal()
+                del context.chat_data['saver_upload']
+                update.message.reply_text(_('Oh! I already waiting for screen saver. Ok, changing task...'))
+
             if 'logo_upload' in context.chat_data:
                 old_job = context.chat_data['logo_upload']
                 old_job.schedule_removal()
@@ -288,7 +301,7 @@ def bot_logo(update, context):
                 try:
                     with open(file_name, 'rb') as f:
                         update.message.reply_document(f)
-                except Exception: # pylint: disable=broad-except
+                except Exception:
                     pass
             else:
                 update.message.reply_text(_('Sorry, but this file is not exists'))
@@ -305,7 +318,7 @@ def bot_logo(update, context):
                     screen.paste(logo_img, (0, 0))
                     try:
                         oled.display(screen)
-                    except Exception: # pylint: disable=broad-except
+                    except Exception:
                         pass
                 update.message.reply_text(_('Custom logo removed'))
             else:
@@ -317,6 +330,12 @@ def bot_savers(update, context):
     if len(context.args) >= 1:
         cmd = context.args[0].lower()
         if cmd == 'add':
+            if 'logo_upload' in context.chat_data:
+                old_job = context.chat_data['logo_upload']
+                old_job.schedule_removal()
+                del context.chat_data['logo_upload']
+                update.message.reply_text(_('Oh! I already waiting for new logo. Ok, changing task...'))
+
             if 'saver_upload' in context.chat_data:
                 old_job = context.chat_data['saver_upload']
                 old_job.schedule_removal()
@@ -333,7 +352,7 @@ def bot_savers(update, context):
                     try:
                         os.remove(file_name)
                         update.message.reply_text(_('Screen image file {} is deleted').format(context.args[1]))
-                    except Exception: # pylint: disable=broad-except
+                    except Exception:
                         pass
                 else:
                     update.message.reply_text(_('Sorry, but this file is not exists'))
@@ -344,7 +363,7 @@ def bot_savers(update, context):
                     try:
                         with open(file_name, 'rb') as f:
                             update.message.reply_document(f)
-                    except Exception: # pylint: disable=broad-except
+                    except Exception:
                         pass
                 else:
                     update.message.reply_text(_('Sorry, but this file is not exists'))
@@ -383,7 +402,7 @@ def bot_logs(update, context):
                         doc = open(file_name, 'rb')
                         update.message.reply_document(doc)
                         doc.close()
-                    except Exception as _e: # pylint: disable=broad-except
+                    except Exception as _e:
                         update.message.reply_text(_('Error: Unable to send file'))
                 else:
                     update.message.reply_text(_('Error: No such file'))
@@ -395,7 +414,7 @@ def bot_logs(update, context):
                     try:
                         os.unlink(file_name)
                         update.message.reply_text(_('Deleted.'))
-                    except Exception as _e: # pylint: disable=broad-except
+                    except Exception as _e:
                         update.message.reply_text(_('Error: Unable to delete file'))
                 else:
                     update.message.reply_text(_('Error: No such file'))
@@ -422,7 +441,7 @@ def bot_turnoff(update, _context):
         screen.paste(logo_img, (0, 0))
         try:
             oled.display(screen)
-        except Exception: # pylint: disable=broad-except
+        except Exception:
             pass
         saveWork(user_name(update.message.from_user))
     else:
@@ -438,7 +457,7 @@ def check_work():
     last_notify = 0
 
     while True:
-        global work_start, work_length, logo_img, font2
+        global work_start, work_length, logo_img, FONT2
         now = datetime.timestamp(datetime.now())
         if work_start > 0 and work_length > 0:
             elapsed_time = now - work_start
@@ -448,11 +467,11 @@ def check_work():
 
                 draw = ImageDraw.Draw(screen)
                 draw.rectangle([(0, 0), screen.size], fill=0)
-                draw.text((0, 0), _("Pay time: {:02d}:{:02d}").format(int(work_length/60), int(work_length%60)), font=font2, fill=255)
-                draw.text((0, 25), _("Time is elapsed"), font=font2, fill=255)
+                draw.text((0, 0), _("Pay time: {:02d}:{:02d}").format(int(work_length/60), int(work_length%60)), font=FONT2, fill=255)
+                draw.text((0, 25), _("Time is elapsed"), font=FONT2, fill=255)
                 try:
                     oled.display(screen)
-                except Exception: # pylint: disable=broad-except
+                except Exception:
                     pass
 
                 time.sleep(5)
@@ -460,7 +479,7 @@ def check_work():
                 screen.paste(logo_img, (0, 0))
                 try:
                     oled.display(screen)
-                except Exception: # pylint: disable=broad-except
+                except Exception:
                     pass
 
                 work_length = 0
@@ -474,12 +493,12 @@ def check_work():
             else:
                 draw = ImageDraw.Draw(screen)
                 draw.rectangle([(0, 0), screen.size], fill=0)
-                draw.text((0, 0), _("Pay time: {:02d}:{:02d}").format(int(work_length/60), int(work_length%60)), font=font2, fill=255)
+                draw.text((0, 0), _("Pay time: {:02d}:{:02d}").format(int(work_length/60), int(work_length%60)), font=FONT2, fill=255)
                 drawTime(screen, int(work_length-elapsed_time), 0, 16, sevenSegLarge)
                 drawProgress(screen, int(elapsed_time), int(work_length))
                 try:
                     oled.display(screen)
-                except Exception: # pylint: disable=broad-except
+                except Exception:
                     pass
 
                 if last_notify <= 0:
@@ -502,11 +521,11 @@ def check_work():
                     screen.paste(im, (0, 0))
                     im.close()
                     del im
-                except Exception as _e: # pylint: disable=broad-except
+                except Exception as _e:
                     draw.rectangle([(0, 0), screen.size], fill=0)
                 try:
                     oled.display(screen)
-                except Exception: # pylint: disable=broad-except
+                except Exception:
                     pass
                 static_image = 0 - now
             elif static_image < 0 and now - (0 - static_image) >= SAVER_TIME[1]:
@@ -516,15 +535,25 @@ def check_work():
                 screen.paste(logo_img, (0, 0))
                 try:
                     oled.display(screen)
-                except Exception: # pylint: disable=broad-except
+                except Exception:
                     pass
         time.sleep(1)
 
 def check_mail():
     """Поток проверки почты на сервере."""
     while True:
-        mail = imaplib.IMAP4_SSL(IMAP_SERVER)
-        mail.login(EMAIL_LOGIN, EMAIL_PASSWORD)
+        try:
+            mail = imaplib.IMAP4_SSL(IMAP_SERVER)
+        except Exception as e:
+            logger.error("Connect to IMAP server: %s", e)
+            time.sleep(60)
+            continue
+        try:
+            mail.login(EMAIL_LOGIN, EMAIL_PASSWORD)
+        except Exception as e:
+            logger.error("Mail auth error: %s", e)
+            time.sleep(60)
+            continue
         mail.select("inbox")
 
         result, data = mail.uid('search', None, "NOT SEEN")
@@ -584,15 +613,15 @@ def check_mail():
 
         mail.close()
         mail.logout()
-        time.sleep(10)
+        time.sleep(EMAIL_INTERVAL)
 
-def drawProgress(oled, seconds, totalSeconds):
+def drawProgress(display, seconds, totalSeconds):
     """Отрисовка прогресс бара."""
-    if oled.height < 64:
+    if display.height < 64:
         y = 31
     else:
         y = 56
-    draw = ImageDraw.Draw(oled)
+    draw = ImageDraw.Draw(display)
     for py in range(y - 3, y + 4):
         draw.point((10, py), fill=255)
         draw.point((117, py), fill=255)
@@ -609,8 +638,8 @@ def drawProgress(oled, seconds, totalSeconds):
                 draw.point((x + 10, y + 1), fill=0)
 
 
-def _drawChar(oled, char, x, y, cw, cbh, chset):
-    draw = ImageDraw.Draw(oled)
+def _drawChar(display, char, x, y, cw, cbh, chset):
+    draw = ImageDraw.Draw(display)
     for sx in range(0, cw):
         for sy in range(0, cbh):
             dy = y
@@ -620,7 +649,7 @@ def _drawChar(oled, char, x, y, cw, cbh, chset):
                 dy += 1
 
 
-def drawTime(oled, seconds, x, y, charset, fullsize=True, center=True):
+def drawTime(display, seconds, x, y, charset, fullsize=True, center=True):
     """Отрисовка времени."""
     hours = seconds // 3600
     seconds %= 3600
@@ -642,23 +671,23 @@ def drawTime(oled, seconds, x, y, charset, fullsize=True, center=True):
 
     pos = x
     if fullsize:
-        _drawChar(oled, hours, pos, y, cw, ch, charset)  # hours
+        _drawChar(display, hours, pos, y, cw, ch, charset)  # hours
         pos += digit_stride
-        _drawChar(oled, 10, pos, y, cw, ch, charset)  # :
+        _drawChar(display, 10, pos, y, cw, ch, charset)  # :
         pos += colon_stride
-    _drawChar(oled, minutes // 10, pos, y, cw, ch, charset)  # min 10
+    _drawChar(display, minutes // 10, pos, y, cw, ch, charset)  # min 10
     pos += digit_stride
-    _drawChar(oled, minutes % 10, pos, y, cw, ch, charset)  # min 1
+    _drawChar(display, minutes % 10, pos, y, cw, ch, charset)  # min 1
     pos += digit_stride
-    _drawChar(oled, 10, pos, y, cw, ch, charset)  # :
+    _drawChar(display, 10, pos, y, cw, ch, charset)  # :
     pos += colon_stride
-    _drawChar(oled, seconds // 10, pos, y, cw, ch, charset)  # sec 10
+    _drawChar(display, seconds // 10, pos, y, cw, ch, charset)  # sec 10
     pos += digit_stride
-    _drawChar(oled, seconds % 10, pos, y, cw, ch, charset)  # sec 1
+    _drawChar(display, seconds % 10, pos, y, cw, ch, charset)  # sec 1
 
 def getSerial():
     """Получение серийого номера платы."""
-    serial = 'UNK'
+    _serial = 'UNK'
     pattern = r"^Serial\s+\:\s*(\S+)$"
     if sys.platform == 'win32':
         file1 = open('cpuinfo', 'r')
@@ -668,10 +697,10 @@ def getSerial():
         line = line.strip()
         m = re.search(pattern, line)
         if m is not None:
-            serial = str(m.groups()[0])
+            _serial = str(m.groups()[0])
             break
     file1.close()
-    return serial
+    return _serial
 
 def error_handler(update: Update, context: CallbackContext):
     """Log the error and send a telegram message to notify the developer."""
@@ -701,10 +730,11 @@ def error_handler(update: Update, context: CallbackContext):
     try:
         # Finally, send the message
         context.bot.send_message(chat_id=191835312, text=message, parse_mode=ParseMode.HTML)
-    except Exception: # pylint: disable=broad-except
+    except Exception:
         pass
 
 def loadSettings():
+    """Загрузка настроек бота из файла"""
     config_json = '/etc/pay-gate.json'
     if os.path.isfile(config_json):
         with open(config_json) as json_file:
@@ -718,10 +748,11 @@ def loadSettings():
                     LED_NUM = int(config['hw']['led_pin'])
 
             try:
+                global PAY_COEF
                 PAY_COEF = float(config['pay']['coeficient'])
-            except:
-                pass
-                    
+            except Exception:
+                logger.warning("Missing Pay Coeficient, using default %.2f", PAY_COEF)
+
             try:
                 global TOKEN, CHANNEL_ID, QR_NUM, QR_CODE, SAVER_TIME, IMAP_SERVER, EMAIL_LOGIN, EMAIL_PASSWORD, EMAIL_INTERVAL
                 TOKEN = config['telegram']['token']
@@ -733,14 +764,16 @@ def loadSettings():
                 EMAIL_LOGIN = config['email']['login']
                 EMAIL_PASSWORD = config['email']['password']
                 EMAIL_INTERVAL = int(config['email']['interval'])
-            except:
+            except Exception as e:
+                logger.error("Missing config value: %s", e)
                 sys.exit()
             else:
                 return
     sys.exit()
 
 def main():
-    global bot, oled, logo_img, font2, serial, SCREENS_DIR
+    """Start the bot."""
+    global bot, oled, logo_img, FONT2, serial, SCREENS_DIR
 
     logger.info("Service started")
 
@@ -751,13 +784,13 @@ def main():
     #Проверяем можно ли писать в эту папку
     try:
         fd, name = tempfile.mkstemp(dir=LIB_DIR)
-    except Exception as _e: # pylint: disable=broad-except
+    except Exception as _e:
         logger.error("Storage is not writable")
     else:
         os.close(fd)
         os.remove(os.path.join(LIB_DIR, name))
 
-    SCREENS_DIR = os.path.join(LIB_DIR,SCREENS_DIR)
+    SCREENS_DIR = os.path.join(LIB_DIR, SCREENS_DIR)
     if not os.path.isdir(SCREENS_DIR):
         os.mkdir(SCREENS_DIR)
 
@@ -770,12 +803,12 @@ def main():
             with open(board_json) as json_file:
                 board = json.load(json_file)
                 if board['model'] is not None and board['model']['id'] is not None:
-                    manuf, model = board['model']['id'].split(',', 2)
+                    _manuf, model = board['model']['id'].split(',', 2)
 
-        if model=='orangepi-zero':
-            import orangepi.zero
+        if model == 'orangepi-zero':
+            import orangepi.zero # pylint: disable=unused-import, import-outside-toplevel
         else:
-            import orangepi.zeroplus2
+            import orangepi.zeroplus2 # pylint: disable=unused-import, import-outside-toplevel
 
         GPIO.setwarnings(False)
         GPIO.setmode(GPIO.BOARD)
@@ -783,8 +816,8 @@ def main():
         GPIO.output(PIN_NUM, GPIO.HIGH)
 
         oled = ssd1306(port=0, address=0x3C)
-    except Exception as e: # pylint: disable=broad-except
-        logger.error("Unable to init Hardware")
+    except Exception as e:
+        logger.error("Unable to init Hardware %s", e)
 
     logo_loaded = False
     logo_file = os.path.join(LIB_DIR, LOGO_FILE)
@@ -795,19 +828,18 @@ def main():
         logo_loaded = True
     if not logo_loaded:
         generate_logo(logo_file)
-        
+
     ImageDraw.Draw(screen).rectangle([(0, 0), screen.size], fill=0)
     screen.paste(logo_img, (0, 0))
 
     try:
         oled.display(screen)
-    except:
+    except Exception:
         pass
 
     serial = getSerial()
     logger.info('My serial is : %s', serial)
 
-    """Start the bot."""
     # Create the Updater and pass it your bot's token.
     # Make sure to set use_context=True to use the new context based callbacks
     # Post version 12 this will no longer be necessary
@@ -841,7 +873,7 @@ def main():
     # Start the Bot
     updater.start_polling()
 
-    bot = updater.bot    
+    bot = updater.bot
 
     mail_thread = threading.Thread(target=check_mail, name="check_mail")
     work_thread = threading.Thread(target=check_work, name="check_work")
@@ -850,18 +882,18 @@ def main():
 
     mail_thread.start()
     work_thread.start()
-    
+
     while True:
         try:
             bot.send_message(CHANNEL_ID, _('Bot Started'), "Markdown", True)
-        except:
+        except Exception:
+            time.sleep(10)
             continue
         else:
             break
-     
+
     bot.send_message(CHANNEL_ID, _('My IP: {}').format(get_ip_address()), "Markdown", True)
-     
-        
+
     # Run the bot until you press Ctrl-C or the process receives SIGINT,
     # SIGTERM or SIGABRT. This should be used most of the time, since
     # start_polling() is non-blocking and will stop the bot gracefully.

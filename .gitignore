@@ -8,6 +8,6 @@ __pycache__
 *.egg-info
 /screens/
 /tests/
-.pylintrc
 service.code-workspace
 board.json
+*.mo

@@ -1,0 +1,5 @@
+[VARIABLES]
+additional-builtins=_
+
+[MESSAGES CONTROL]
+disable=C0301, C0103, broad-except, global-statement
