@@ -10,7 +10,7 @@ def read(fname):
 
 setup(
     name="pay_gate",
-    version="1.0.4",
+    version="1.0.5",
     author="Alexey Belyaev",
     author_email="spider@spder.vc",
     description=("Демон управления парковокй по оплате."),

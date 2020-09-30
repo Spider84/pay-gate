@@ -189,15 +189,20 @@ def bot_state(update, _context):
 
 def bot_turnon(update, context):
     """Обработчик команды бота turnoff."""
+    if update.message is None:
+        return
     logger.info('Turn on requested by %s', user_name(update.message.from_user))
     if len(context.args) == 1 and context.args[0].isdigit():
         global work_start, work_length, oled
-        work_length = int(context.args[0])*60
-        work_start = datetime.timestamp(datetime.now())
-        logger.info('Starting work for %d sec', int(work_length))
-        turnRelayOn()
-        update.message.reply_text(_('Starting work for {} min').format(int(work_length/60)))
-        saveWork(user_name(update.message.from_user))
+        if work_start == 0 or work_length == 0:
+            work_length = int(context.args[0])*60
+            work_start = datetime.timestamp(datetime.now())
+            logger.info('Starting work for %d sec', int(work_length))
+            turnRelayOn()
+            update.message.reply_text(_('Starting work for {} min').format(int(work_length/60)))
+            saveWork(user_name(update.message.from_user))
+        else:
+            update.message.reply_text(_('I\'m already in work!'))
     else:
         update.message.reply_text(_('What you want?'))
 
@@ -430,7 +435,7 @@ def bot_serial(update, _context):
 
 def bot_turnoff(update, _context):
     """Обработчик команды бота turnoff."""
-    global work_start, work_length
+    global work_start, work_length, oled, screen
     logger.info('Turn off requested by %s', user_name(update.message.from_user))
     if work_start != 0:
         work_length = 0
@@ -512,7 +517,7 @@ def check_work():
                     last_notify = now
                     logger.info('Elapsed notification %d', int(elapsed))
                     elapsed = int(elapsed/60)
-                    bot.send_message(chat_id=CHANNEL_ID, text=_('Elapsed time {}').format(int(elapsed)), parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
+                    bot.send_message(chat_id=CHANNEL_ID, text=_('Elapsed time {} min').format(int(elapsed)), parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
         else:
             if static_image == 0:
                 static_image = now
