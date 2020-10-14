@@ -37,6 +37,7 @@ SAVER_TIME = (60, 5)                                     #время стати�
 QR_NUM = 0                                               #номер QR для сравнения в EMAIL
 QR_CODE = ''                                             # ссылка внутри QR кода
 PAY_COEF = 0.8
+NOTIFY_INTERVAL = 60
 
 IMAP_SERVER = ''
 EMAIL_LOGIN = ''
@@ -199,7 +200,7 @@ def bot_turnon(update, context):
             work_start = datetime.timestamp(datetime.now())
             logger.info('Starting work for %d sec', int(work_length))
             turnRelayOn()
-            update.message.reply_text(_('Starting work for {} min').format(int(work_length/60)))
+            update.message.reply_text(_('Starting work').format(int(work_length/60)))
             saveWork(user_name(update.message.from_user))
         else:
             update.message.reply_text(_('I\'m already in work!'))
@@ -510,14 +511,15 @@ def check_work():
                 except Exception:
                     pass
 
-                if last_notify <= 0:
-                    last_notify = work_start
-                if now-last_notify >= 60:
-                    elapsed = (work_length-elapsed_time)
-                    last_notify = now
-                    logger.info('Elapsed notification %d', int(elapsed))
-                    elapsed = int(elapsed/60)
-                    bot.send_message(chat_id=CHANNEL_ID, text=_('Elapsed time {} min').format(int(elapsed)), parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
+                if NOTIFY_INTERVAL>0:
+                    if last_notify <= 0:
+                        last_notify = work_start
+                    if now-last_notify >= NOTIFY_INTERVAL:
+                        elapsed = (work_length-elapsed_time)
+                        last_notify = now
+                        logger.info('Elapsed notification %d', int(elapsed))
+                        elapsed = int(elapsed/60)
+                        bot.send_message(chat_id=CHANNEL_ID, text=_('Elapsed time {} min').format(int(elapsed)), parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
         else:
             if static_image == 0:
                 static_image = now
@@ -765,6 +767,12 @@ def loadSettings():
                 PAY_COEF = float(config['pay']['coeficient'])
             except Exception:
                 logger.warning("Missing Pay Coeficient, using default %.2f", PAY_COEF)
+
+            try:
+                global NOTIFY_INTERVAL
+                NOTIFY_INTERVAL = int(config['telegram']['notify_interval'])
+            except Exception:
+                logger.warning("Missing NOTIFY_INTERVAL, using default %u", NOTIFY_INTERVAL)
 
             try:
                 global TOKEN, CHANNEL_ID, QR_NUM, QR_CODE, SAVER_TIME, IMAP_SERVER, EMAIL_LOGIN, EMAIL_PASSWORD, EMAIL_INTERVAL
