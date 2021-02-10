@@ -179,6 +179,8 @@ def user_name(from_user):
 
 def bot_state(update, _context):
     """Обработчик команды бота state."""
+    if update.message is None:
+        return
     text = ""
     logger.info('State requested by %s', user_name(update.message.from_user))
     if work_start != 0:
@@ -284,6 +286,8 @@ def saver_upload_timeout(_update, context):
 
 def bot_logo(update, context):
     """Обработчик команды бота logo."""
+    if update.message is None:
+        return
     logger.info('Logo requested by %s', user_name(update.message.from_user))
     if len(context.args) >= 1:
         cmd = context.args[0].lower()
@@ -334,6 +338,8 @@ def bot_logo(update, context):
 
 def bot_savers(update, context):
     """Обработчик команды бота savers."""
+    if update.message is None:
+        return
     logger.info('Savers requested by %s', user_name(update.message.from_user))
     if len(context.args) >= 1:
         cmd = context.args[0].lower()
@@ -378,6 +384,8 @@ def bot_savers(update, context):
 
 def bot_logs(update, context):
     """Обработчик команды бота logs."""
+    if update.message is None:
+        return
     logger.info('Logs requested by %s', user_name(update.message.from_user))
     if len(context.args) >= 1:
         cmd = context.args[0].lower()
@@ -431,11 +439,17 @@ def bot_logs(update, context):
 
 def bot_serial(update, _context):
     """Обработчик команды бота serial."""
+    if update.message is None:
+        return
+
     logger.info('Serial requested by %s', user_name(update.message.from_user))
     update.message.reply_text(serial)
 
 def bot_turnoff(update, _context):
     """Обработчик команды бота turnoff."""
+    if update.message is None:
+        return
+
     global work_start, work_length, oled, screen
     logger.info('Turn off requested by %s', user_name(update.message.from_user))
     if work_start != 0:
@@ -853,13 +867,15 @@ def main():
                 if board['model'] is not None and board['model']['id'] is not None:
                     _manuf, model = board['model']['id'].split(',', 2)
 
+        GPIO.setwarnings(False)
+
         if model == 'orangepi-zero':
             import orangepi.zero # pylint: disable=unused-import, import-outside-toplevel
+            GPIO.setmode(orangepi.zero.BOARD)
         else:
             import orangepi.zeroplus2 # pylint: disable=unused-import, import-outside-toplevel
+            GPIO.setmode(orangepi.zeroplus2.BOARD)
 
-        GPIO.setwarnings(False)
-        GPIO.setmode(GPIO.BOARD)
         GPIO.setup(PIN_NUM, GPIO.OUT)
         GPIO.output(PIN_NUM, GPIO.HIGH)
 
