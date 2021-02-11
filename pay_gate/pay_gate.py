@@ -789,11 +789,11 @@ def loadSettings():
 
             if 'hw' in config is not None:
                 global PIN_NUM, LED_NUM, INVERT_PIN
-                if 'relay_pin' in config['hw'] and config['hw']['relay_pin'].isdigit():
+                if 'relay_pin' in config['hw'] and type(config['hw']['relay_pin']) == int:
                     PIN_NUM = int(config['hw']['relay_pin'])
-                if 'invert_relay' in config['hw'] and config['hw']['invert_relay'].isdigit():
+                if 'invert_relay' in config['hw'] and type(config['hw']['invert_relay']) in [int, bool]:
                     INVERT_PIN = int(config['hw']['invert_relay'])!=0
-                if 'led_pin' in config['hw'] and config['hw']['led_pin'].isdigit():
+                if 'led_pin' in config['hw'] and type(config['hw']['led_pin']) == int:
                     LED_NUM = int(config['hw']['led_pin'])
 
             try:
