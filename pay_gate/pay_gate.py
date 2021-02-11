@@ -30,6 +30,7 @@ if sys.platform != 'win32':
     from oled.device import ssd1306, sh1106 # pylint: disable=unused-import
 
 PIN_NUM = 26                                             # номер ноги на разъёме для реле
+INVERT_PIN = False                                       # инвертировать логику ноги
 LED_NUM = 0                                              # не используется пока
 TOKEN = ''                                               # токен бота
 CHANNEL_ID = 0                                           #куда слать широковещания
@@ -118,7 +119,7 @@ def turnRelayOn():
     """Включение реле."""
     logger.info('Relay On')
     try:
-        GPIO.output(PIN_NUM, GPIO.LOW)
+        GPIO.output(PIN_NUM, GPIO.HIGH if INVERT_PIN else GPIO.LOW)
     except Exception:
         pass
 
@@ -126,7 +127,7 @@ def turnRelayOff():
     """Выключение реле."""
     logger.info('Relay Off')
     try:
-        GPIO.output(PIN_NUM, GPIO.HIGH)
+        GPIO.output(PIN_NUM, GPIO.LOW if INVERT_PIN else GPIO.HIGH)
     except Exception:
         pass
 
@@ -770,9 +771,11 @@ def loadSettings():
             config = json.load(json_file)
 
             if 'hw' in config is not None:
-                global PIN_NUM, LED_NUM
+                global PIN_NUM, LED_NUM, INVERT_PIN
                 if 'relay_pin' in config['hw'] and config['hw']['relay_pin'].isdigit():
                     PIN_NUM = int(config['hw']['relay_pin'])
+                if 'invert_relay' in config['hw'] and config['hw']['invert_relay'].isdigit():
+                    INVERT_PIN = int(config['hw']['invert_relay'])!=0
                 if 'led_pin' in config['hw'] and config['hw']['led_pin'].isdigit():
                     LED_NUM = int(config['hw']['led_pin'])
 
@@ -877,7 +880,7 @@ def main():
             GPIO.setmode(orangepi.zeroplus2.BOARD)
 
         GPIO.setup(PIN_NUM, GPIO.OUT)
-        GPIO.output(PIN_NUM, GPIO.HIGH)
+        GPIO.output(PIN_NUM, GPIO.LOW if INVERT_PIN else GPIO.HIGH)
 
         oled = ssd1306(port=0, address=0x3C)
     except Exception as e:
