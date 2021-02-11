@@ -39,6 +39,8 @@ QR_NUM = 0                                               #номер QR для �
 QR_CODE = ''                                             # ссылка внутри QR кода
 PAY_COEF = 0.8
 NOTIFY_INTERVAL = 60
+ADMINS = []                                              # список админов бота
+SUDO_KEY = '321456'                                      # пароль для всех не админов
 
 IMAP_SERVER = ''
 EMAIL_LOGIN = ''
@@ -156,6 +158,17 @@ def loadWork():
     except Exception:
         pass
 
+def checkIsAdmin(from_user):
+    """Проверка на вхождение в список админов"""
+    if len(ADMINS)<=0:
+        return True
+    return (from_user.id in ADMINS) or ((from_user.username is not None) and (from_user.username in ADMINS))
+
+def user_name(from_user):
+    """Форматирование имени отправителя комнады в читанемый вид"""
+    name = from_user.username if from_user.username is not None else from_user.name
+    return name if name is not None else from_user.id
+
 # Define a few command handlers. These usually take the two arguments update and
 # context. Error handlers also receive the raised TelegramError object in error.
 def start(update, _context):
@@ -168,19 +181,16 @@ def help_command(update, _context):
 
 def bot_screen(update, _context):
     """Обработчик команды бота screen."""
+    if (update.message is None) or (not checkIsAdmin(update.message.from_user)):
+        return
     imgByteArr = io.BytesIO()
     screen.save(imgByteArr, format='PNG')
     imgByteArr.seek(0, 0)
     update.message.reply_photo(imgByteArr)
 
-def user_name(from_user):
-    """Форматирование имени отправителя комнады в читанемый вид"""
-    name = from_user.username if from_user.username is not None else from_user.name
-    return name if name is not None else from_user.id
-
 def bot_state(update, _context):
     """Обработчик команды бота state."""
-    if update.message is None:
+    if (update.message is None) or (not checkIsAdmin(update.message.from_user)):
         return
     text = ""
     logger.info('State requested by %s', user_name(update.message.from_user))
@@ -193,7 +203,7 @@ def bot_state(update, _context):
 
 def bot_turnon(update, context):
     """Обработчик команды бота turnoff."""
-    if update.message is None:
+    if (update.message is None) or (not checkIsAdmin(update.message.from_user)):
         return
     logger.info('Turn on requested by %s', user_name(update.message.from_user))
     if len(context.args) == 1 and context.args[0].isdigit():
@@ -209,6 +219,15 @@ def bot_turnon(update, context):
             update.message.reply_text(_('I\'m already in work!'))
     else:
         update.message.reply_text(_('What you want?'))
+
+def bot_password(update, context):
+    """Обработчик команды бота password."""
+    if (update.message is None):
+        return
+    if len(context.args) == 1 and type(context.args[0]) == str:
+        global ADMINS
+        if not (update.message.from_user.id in ADMINS) and not (update.message.from_user.username in ADMINS):
+            ADMINS.append(update.message.from_user.id)
 
 def document_handler(update, context):
     """Обработчик события загрузки файла."""
@@ -287,7 +306,7 @@ def saver_upload_timeout(_update, context):
 
 def bot_logo(update, context):
     """Обработчик команды бота logo."""
-    if update.message is None:
+    if (update.message is None) or (not checkIsAdmin(update.message.from_user)):
         return
     logger.info('Logo requested by %s', user_name(update.message.from_user))
     if len(context.args) >= 1:
@@ -339,7 +358,7 @@ def bot_logo(update, context):
 
 def bot_savers(update, context):
     """Обработчик команды бота savers."""
-    if update.message is None:
+    if (update.message is None) or (not checkIsAdmin(update.message.from_user)):
         return
     logger.info('Savers requested by %s', user_name(update.message.from_user))
     if len(context.args) >= 1:
@@ -385,7 +404,7 @@ def bot_savers(update, context):
 
 def bot_logs(update, context):
     """Обработчик команды бота logs."""
-    if update.message is None:
+    if (update.message is None) or (not checkIsAdmin(update.message.from_user)):
         return
     logger.info('Logs requested by %s', user_name(update.message.from_user))
     if len(context.args) >= 1:
@@ -440,17 +459,15 @@ def bot_logs(update, context):
 
 def bot_serial(update, _context):
     """Обработчик команды бота serial."""
-    if update.message is None:
+    if (update.message is None) or (not checkIsAdmin(update.message.from_user)):
         return
-
     logger.info('Serial requested by %s', user_name(update.message.from_user))
     update.message.reply_text(serial)
 
 def bot_turnoff(update, _context):
     """Обработчик команды бота turnoff."""
-    if update.message is None:
+    if (update.message is None) or (not checkIsAdmin(update.message.from_user)):
         return
-
     global work_start, work_length, oled, screen
     logger.info('Turn off requested by %s', user_name(update.message.from_user))
     if work_start != 0:
@@ -573,14 +590,14 @@ def check_mail():
     while not getattr(t, "stop", False):
         try:
             mail = imaplib.IMAP4_SSL(IMAP_SERVER)
-        except Exception as e:
-            logger.error("Connect to IMAP server: %s", e)
+        except Exception as er:
+            logger.error("Connect to IMAP server: %s", er)
             e.wait(timeout=60)
             continue
         try:
             mail.login(EMAIL_LOGIN, EMAIL_PASSWORD)
-        except Exception as e:
-            logger.error("Mail auth error: %s", e)
+        except Exception as er:
+            logger.error("Mail auth error: %s", er)
             e.wait(timeout=60)
             continue
         mail.select("inbox")
@@ -792,9 +809,18 @@ def loadSettings():
                 logger.warning("Missing NOTIFY_INTERVAL, using default %u", NOTIFY_INTERVAL)
 
             try:
-                global TOKEN, CHANNEL_ID, QR_NUM, QR_CODE, SAVER_TIME, IMAP_SERVER, EMAIL_LOGIN, EMAIL_PASSWORD, EMAIL_INTERVAL
+                global TOKEN, CHANNEL_ID, QR_NUM, QR_CODE, SAVER_TIME, IMAP_SERVER, EMAIL_LOGIN, EMAIL_PASSWORD, EMAIL_INTERVAL, ADMINS
                 TOKEN = config['telegram']['token']
                 CHANNEL_ID = config['telegram']['channel_id']
+
+                if 'admins' in config['telegram'] and type(config['telegram']['admins']) in [list, tuple]:
+                    ADMINS = []
+                    for adm_id in config['telegram']['admins']:
+                        ADMINS.append(adm_id)
+
+                if 'password' in config['telegram'] and type(config['telegram']['password']) == str:
+                    SUDO_KEY = config['telegram']['password']
+
                 QR_NUM = config['QR']['num']
                 QR_CODE = config['QR']['url'].format(QR_NUM)
                 SAVER_TIME = (int(config['saver']['delay']), int(config['saver']['show']))
@@ -927,6 +953,7 @@ def main():
     dp.add_handler(CommandHandler("screen", bot_screen))
     dp.add_handler(CommandHandler("savers", bot_savers, pass_args=True, pass_job_queue=True, pass_chat_data=True))
     dp.add_handler(CommandHandler("logo", bot_logo, pass_args=True, pass_job_queue=True, pass_chat_data=True))
+    dp.add_handler(CommandHandler("password", bot_password))
     dp.add_handler(MessageHandler(Filters.document, document_handler))
 
     # on noncommand i.e message - echo the message on Telegram
