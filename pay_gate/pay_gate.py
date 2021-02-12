@@ -916,7 +916,7 @@ def main():
     except Exception as e:
         logger.error("Unable to init Hardware %s", e)
 
-    try
+    try:
         FONT2 = ImageFont.truetype(os.path.join(os.path.dirname(__file__), 'fonts/C&C Red Alert [INET].ttf'), 15)
     except Exception as e:
         logger.error("Unable to Load font: %s", e)
