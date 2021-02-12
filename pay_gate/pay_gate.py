@@ -52,35 +52,20 @@ LIB_DIR = '/var/lib/pay_gate' if sys.platform != 'win32' else 'lib' #папка 
 LOG_PATH = os.path.join(LIB_DIR, 'log')                  #папка с логами
 LOGO_FILE = 'logo.png'                                   #файл логотипа
 
-mail_thread = 0
-work_thread = 0
-
 gettext.translation('pay_gate', os.path.join(os.path.dirname(__file__), './translations'), fallback=True, languages=['ru', 'en']).install()
 
 # Enable logging
-logFormatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
 logger = logging.getLogger()
 
-pkg_name = vars(sys.modules[__name__])['__package__']
-if pkg_name is None:
-    pkg_name = __name__
-fileHandler = logging.FileHandler('{0}/{1}.log'.format(LOG_PATH, pkg_name))
-fileHandler.setFormatter(logFormatter)
-logger.addHandler(fileHandler)
-
-consoleHandler = logging.StreamHandler(sys.stdout)
-consoleHandler.setFormatter(logFormatter)
-logger.addHandler(consoleHandler)
-
-logger.setLevel(logging.INFO)
-
+mail_thread = 0
+work_thread = 0
 bot = 0
 oled = 0
 logo_img = Image.new('1', (128, 64))
 serial = ''
 work_start = float(0)
 work_length = float(0)
-FONT2 = ImageFont.truetype(os.path.join(os.path.dirname(__file__), 'fonts/C&C Red Alert [INET].ttf'), 15)
+FONT2 = None
 static_image = 0
 screen = Image.new('1', (128, 64))
 
@@ -864,13 +849,32 @@ def sig_handler(signum, _frame):
 
 def main():
     """Start the bot."""
-    global bot, oled, logo_img, FONT2, serial, SCREENS_DIR, mail_thread, work_thread
-
-    logger.info("Service started")
+    global bot, oled, logo_img, FONT2, serial, SCREENS_DIR, mail_thread, work_thread, FONT2
 
     # Проверяем есть ли папка для сохранения данных
     if not os.path.isdir(LIB_DIR):
         os.mkdir(LIB_DIR)
+
+    if not os.path.exists(LOG_PATH):
+        os.mkdir(LOG_PATH)
+
+    logFormatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
+
+    pkg_name = vars(sys.modules[__name__])['__package__']
+    if pkg_name is None:
+        pkg_name = __name__
+
+    fileHandler = logging.FileHandler('{0}/{1}.log'.format(LOG_PATH, pkg_name))
+    fileHandler.setFormatter(logFormatter)
+    logger.addHandler(fileHandler)
+
+    consoleHandler = logging.StreamHandler(sys.stdout)
+    consoleHandler.setFormatter(logFormatter)
+    logger.addHandler(consoleHandler)
+
+    logger.setLevel(logging.INFO)
+
+    logger.info("Service started")
 
     #Проверяем можно ли писать в эту папку
     try:
@@ -911,6 +915,11 @@ def main():
         oled = ssd1306(port=0, address=0x3C)
     except Exception as e:
         logger.error("Unable to init Hardware %s", e)
+
+    try
+        FONT2 = ImageFont.truetype(os.path.join(os.path.dirname(__file__), 'fonts/C&C Red Alert [INET].ttf'), 15)
+    except Exception as e:
+        logger.error("Unable to Load font: %s", e)
 
     logo_loaded = False
     logo_file = os.path.join(LIB_DIR, LOGO_FILE)
