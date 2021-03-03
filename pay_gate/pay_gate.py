@@ -41,6 +41,7 @@ PAY_COEF = 0.8
 NOTIFY_INTERVAL = 60
 ADMINS = []                                              # список админов бота
 SUDO_KEY = '321456'                                      # пароль для всех не админов
+APPEND_TIME = 0                                          # время добавляемое к основному
 
 IMAP_SERVER = ''
 EMAIL_LOGIN = ''
@@ -638,7 +639,7 @@ def check_mail():
                                 logger.info('Payment detected %.2f', pay)
                                 bot.send_message(CHANNEL_ID, _('Payment detected {}!').format(pay), "Markdown", True)
                                 work_start = datetime.timestamp(datetime.now())
-                                work_length = int((60 * pay)*PAY_COEF)
+                                work_length = int((60 * pay)*PAY_COEF) + APPEND_TIME
                                 turnRelayOn()
                                 saveWork(m.groups()[0])
 
@@ -786,6 +787,10 @@ def loadSettings():
                 PAY_COEF = float(config['pay']['coeficient'])
             except Exception:
                 logger.warning("Missing Pay Coeficient, using default %.2f", PAY_COEF)
+
+            if 'bonus' in config['pay'] and type(config['pay']['bonus']) in [int]:
+                global APPEND_TIME
+                APPEND_TIME = int(config['pay']['bonus'])
 
             try:
                 global NOTIFY_INTERVAL
