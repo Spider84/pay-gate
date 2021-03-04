@@ -167,7 +167,7 @@ def help_command(update, _context):
 
 def bot_screen(update, _context):
     """Обработчик команды бота screen."""
-    if (update.message is None) or (not checkIsAdmin(update.message.from_user)):
+    if (update.message is None):
         return
     imgByteArr = io.BytesIO()
     screen.save(imgByteArr, format='PNG')
@@ -176,7 +176,7 @@ def bot_screen(update, _context):
 
 def bot_state(update, _context):
     """Обработчик команды бота state."""
-    if (update.message is None) or (not checkIsAdmin(update.message.from_user)):
+    if (update.message is None):
         return
     text = ""
     logger.info('State requested by %s', user_name(update.message.from_user))
@@ -472,10 +472,6 @@ def bot_turnoff(update, _context):
         saveWork(user_name(update.message.from_user))
     else:
         update.message.reply_text(_('I\'m already do nothing...'))
-
-def echo(update, _context):
-    """Echo the user message."""
-    update.message.reply_text(update.message.text)
 
 def check_work():
     """Основаня рабочая петля. Реализует конечный автомат состояний."""
@@ -969,9 +965,6 @@ def main():
     dp.add_handler(CommandHandler("logo", bot_logo, pass_args=True, pass_job_queue=True, pass_chat_data=True))
     dp.add_handler(CommandHandler("password", bot_password))
     dp.add_handler(MessageHandler(Filters.document, document_handler))
-
-    # on noncommand i.e message - echo the message on Telegram
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, echo))
 
     # ...and the error handler
     dp.add_error_handler(error_handler)
