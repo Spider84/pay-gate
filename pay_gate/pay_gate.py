@@ -2,7 +2,6 @@
 """#"""
 # -*- coding: utf-8 -*-
 
-import __version__
 import sys
 import os
 import logging
