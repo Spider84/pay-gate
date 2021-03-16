@@ -42,6 +42,9 @@ NOTIFY_INTERVAL = 60
 ADMINS = []                                              # список админов бота
 SUDO_KEY = '321456'                                      # пароль для всех не админов
 APPEND_TIME = 0                                          # время добавляемое к основному
+RE_SCRIPT = '^[\\w\\s]+\\:\\s*(\\d+)\\.\\s*[\\w\\s]+\\:\\s*(\\d+\\.\\d{2})\\s*RUB\\.\\s*QR\\s*:\\s*(\\d+)\\.\\r?$'
+#'^Код подтверждения\\:\\s*(\\d+)\\.\\s*Сумма\\:\\s*(\\d+\\.\\d{2})\\s*RUB\\.\\s*QR\\s*:\\s*(\\d+)\\.\\r?$'
+#'^TEXT\\s*\\:.*\\s(\\d+)\\..*\\:\\s*(\\d+\\.\\d{2})\\s*RUB\\.\\s*QR\\s*:\\s*(\\d+)\\.\r?$'
 
 IMAP_SERVER = ''
 EMAIL_LOGIN = ''
@@ -626,7 +629,8 @@ def check_mail():
 
                     global bot, work_start, work_length, QR_NUM
                     if work_start == 0:
-                        m = re.search('^TEXT\\s*\\:.*\\s(\\d+)\\..*\\:\\s*(\\d+\\.\\d{2})\\s*RUB\\.\\s*QR\\s*:\\s*(\\d+)\\.\r?$', mail_content, re.MULTILINE | re.UNICODE)
+                        global RE_SCRIPT
+                        m = re.search(RE_SCRIPT, mail_content, re.MULTILINE | re.UNICODE)
                         if m is not None:
                             pay = float(m.groups()[1])
                             _qr_num = int(m.groups()[2])
@@ -795,7 +799,7 @@ def loadSettings():
                 logger.warning("Missing NOTIFY_INTERVAL, using default %u", NOTIFY_INTERVAL)
 
             try:
-                global TOKEN, CHANNEL_ID, QR_NUM, QR_CODE, SAVER_TIME, IMAP_SERVER, EMAIL_LOGIN, EMAIL_PASSWORD, EMAIL_INTERVAL, ADMINS
+                global TOKEN, CHANNEL_ID, QR_NUM, QR_CODE, SAVER_TIME, IMAP_SERVER, EMAIL_LOGIN, EMAIL_PASSWORD, EMAIL_INTERVAL, ADMINS, RE_SCRIPT
                 TOKEN = config['telegram']['token']
                 CHANNEL_ID = config['telegram']['channel_id']
 
@@ -809,6 +813,14 @@ def loadSettings():
 
                 QR_NUM = config['QR']['num']
                 QR_CODE = config['QR']['url'].format(QR_NUM)
+                if 'script' in config['email'] and type(config['email']['script']) == str:
+                    re_script = config['email']['script']
+                    try:
+                        re.compile(re_script)
+                        RE_SCRIPT = re_script
+                    except re.error:
+                        logger.warning("Wrong REGEXP script for E-MAIL '%s'", re_script)
+
                 SAVER_TIME = (int(config['saver']['delay']), int(config['saver']['show']))
                 IMAP_SERVER = config['email']['server']
                 EMAIL_LOGIN = config['email']['login']
