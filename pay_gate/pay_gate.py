@@ -2,6 +2,7 @@
 """#"""
 # -*- coding: utf-8 -*-
 
+import __version__
 import sys
 import os
 import logging
@@ -749,11 +750,13 @@ def error_handler(update: Update, context: CallbackContext):
     # You might need to add some logic to deal with messages longer than the 4096 character limit.
     message = (
         'An exception was raised while handling an update\n'
+        'Version: {}\n'
         '<pre>update = {}</pre>\n\n'
         '<pre>context.chat_data = {}</pre>\n\n'
         '<pre>context.user_data = {}</pre>\n\n'
         '<pre>{}</pre>'
     ).format(
+        '1.0.8',
         html.escape(json.dumps(update.to_dict(), indent=2, ensure_ascii=False)),
         html.escape(str(context.chat_data)),
         html.escape(str(context.user_data)),
