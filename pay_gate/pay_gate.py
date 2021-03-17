@@ -598,6 +598,7 @@ def check_mail():
 
                     mail_from, _from_encode = decode_header(message['from'])[0]
                     mail_subject, _encoding = decode_header(message['subject'])[0]
+                    charset = message.get_param('charset', 'ascii')
 
                     try:
                         logger.info('EMAIL from %s with Subject: %s', mail_from.decode(_from_encode), mail_subject.decode(_encoding))
@@ -615,10 +616,10 @@ def check_mail():
                             # if the content type is text/plain
                             # we extract it
                             if part.get_content_type() == 'text/plain':
-                                mail_content += part.get_payload()
+                                mail_content += part.get_payload(None, True).decode(charset)
                     else:
                         # if the message isn't multipart, just extract it
-                        mail_content = message.get_payload()
+                        mail_content = message.get_payload(None, True).decode(charset)
 
                     # and then let's show its result
                     # print(f'From: {mail_from}')
